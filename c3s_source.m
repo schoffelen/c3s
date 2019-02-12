@@ -1,0 +1,63 @@
+function [data, F] = c3s_source(data, sourcemodel, headmodel, type)
+
+if nargin<4
+  type = 'bf';
+end
+
+switch type
+  case {'bf' 'bf_white'}
+    
+    if strcmp(type, 'bf_white')
+      % prewhiten the sensor level time series before computation of the
+      % spatial filter
+      cfgm            = [];
+      cfgm.order      = 1;
+      cfgm.univariate = 0;
+      cfgm.output     = 'residual';
+      
+      % prewhiten the sensor level time series, and recompute the spatial filters
+      data_pw = ft_mvaranalysis(cfgm, data);
+      
+      % compute the sensor covariance
+      cfgt = [];
+      cfgt.covariance = 'yes';
+      cfgt.preproc.demean = 'yes';
+      tlck = ft_timelockanalysis(cfgt, data_pw);
+      tlck.elec = data.elec;
+    else
+      % ensure the time axis of all trials to be the same
+      data.time(1:end) = data.time(1);
+      
+      cfgf = [];
+      cfgf.bpfilter = 'yes';
+      cfgf.bpfreq = [8 12];
+      cfgf.bpfilttype = 'firws';
+      
+      
+      % compute the sensor covariance
+      cfgt = [];
+      cfgt.covariance = 'yes';
+      cfgt.preproc.demean = 'yes';
+      tlck = ft_timelockanalysis(cfgt, ft_preprocessing(cfgf, data));
+    end
+    
+    % create a beamformer spatial filter for each of the locations
+    cfgs = [];
+    cfgs.grid = sourcemodel;
+    cfgs.headmodel = headmodel;
+    cfgs.method = 'lcmv';
+    cfgs.lcmv.keepfilter = 'yes';
+    source = ft_sourceanalysis(cfgs, tlck);
+    F      = cat(1,source.avg.filter{:});
+    
+    data.trial = F*data.trial;
+    if numel(data.label)~=size(data.trial{1},1)
+      label = cell(size(data.trial{1},1),1);
+      for k = 1:numel(label)
+        label{k} = sprintf('chan%03d',k);
+      end
+      data.label = label;
+    end
+    
+  case 'mne'
+end
