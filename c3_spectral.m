@@ -44,7 +44,7 @@ else
   cfgf.taper     = 'dpss';
   cfgf.output    = 'fourier';
   cfgf.tapsmofrq = tapsmofrq;
-  cfgf.pad       = 1.024.*4;
+  cfgf.pad       = 4;
   freq           = ft_freqanalysis(cfgf, data);
   fd             = ft_freqdescriptives([], freq);
 end
